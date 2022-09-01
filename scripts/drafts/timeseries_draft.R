@@ -1,4 +1,20 @@
-library(tidyverse)
+#load packages
+install.packages("plyr")
+install.packages("lubridate")
+install.packages("ggplot2")
+install.packages("dplyr")
+install.packages("ggExtra")
+install.packages("heatmaply")
+
+
+library(plyr)
+library(lubridate)
+library(ggplot2)
+library(dplyr)
+library(ggExtra)
+library(heatmaply)
+
+
 
 # changing to numeric for filtering purposes
 bottle$line <- as.numeric(bottle$line)
@@ -23,12 +39,12 @@ oxy_ts_plot_percentile <- function(n_ranges, percentile, date_min, date_max){
       mutate(depth_fac = rep("[0,500]", length(year)))
   }
 
-  z <- bottle_sub %>%
+x <- bottle_sub %>%
     group_by(year, quarter, depth_fac) %>%
     summarise(oxygen_perc = quantile(oxygen, probs = percentile/100, na.rm = TRUE),
               date = median(date, na.rm = T))
   
-  z %>% 
+  x %>% 
     ggplot(aes(x = date, 
                y = oxygen_perc, 
                group = depth_fac, 
@@ -52,7 +68,6 @@ oxy_ts_plot_percentile <- function(n_ranges, percentile, date_min, date_max){
     scale_y_continuous(limits=c(NA,NA), 
                        expand = c(0.1, 0.1)) +
     theme_bw() 
-  
 }
 
 oxy_ts_plot_percentile(3, 5, '1949-02-28', '2020-01-26')
@@ -73,12 +88,12 @@ oxy_ts_plot_sd <- function(n_ranges, date_min, date_max){
       mutate(depth_fac = rep("[0,500]", length(year)))
   }
   
-  z <- bottle_sub %>%
+  y <- bottle_sub %>%
     group_by(year, quarter, depth_fac) %>%
     summarise(oxygen_sd = sd(oxygen, na.rm = TRUE),
               date = median(date, na.rm = T))
   
-  z %>% 
+  y %>% 
     ggplot(aes(x = date, 
                y = oxygen_sd, 
                group = depth_fac, 
@@ -181,11 +196,11 @@ temp_ts_plot_percentile_quarters <- function(n_ranges, percentile, date_min, dat
       mutate(depth_fac= rep("[0,500]",length(year)))
   }
   
-  z <- bottle_sub %>%
+  q <- bottle_sub %>%
     group_by(year, quarter, depth_fac) %>%
     summarise(temperature_perc = quantile(temperature, probs = percentile/100, na.rm = TRUE),
               date = median(date, na.rm = T))
-  z %>% 
+  q %>% 
     ggplot(aes(x = date, 
                y = temperature_perc, 
                group = depth_fac, 
@@ -215,26 +230,21 @@ temp_ts_plot_percentile_quarters <- function(n_ranges, percentile, date_min, dat
 temp_ts_plot_percentile_quarters(2, 95, '1949-02-28', '2020-01-26')
 
 
-install.packages("plyr")
-install.packages("lubridate")
-install.packages("ggplot2")
-install.packages("dplyr")
-install.packages("ggExtra")
 
-
-library(plyr)
-library(lubridate)
-library(ggplot2)
-library(dplyr)
-library(ggExtra)
+#heat map visual ###
 
 
 
+## filter bottle data set 
+
+bottle$line<-as.numeric(bottle$line)
+bottle_filter<- bottle %>%
+  subset(station <= 60) %>%
+  filter(depth>=0 & depth<=500,
+         line >= 76.7 & line <= 93.3)
 
 
-bottle_heat<- bottle
-
-bottle_heat<-bottle_heat %>% select(c("quarter","year","oxygen"))
+bottle_heat<-bottle_filter %>% select(c("quarter","year","oxygen"))
 quarter<-bottle_heat$quarter
 oxygen<-bottle_heat$oxygen
 year<-bottle_heat$year
@@ -255,25 +265,42 @@ heat_map
 
 
 
-
-
-
-
-
-# heat_map2<-ggplot(bottle_heat, aes(year,quarter)) + geom_tile(aes(fill = oxygen),colour = "white", na.rm = TRUE) +
-#   scale_fill_gradient2(low ="#FF0000" , mid="#000000", high = "#0000FF") +  
-#   guides(fill=guide_legend(title="Oxygen Levels"),labels = paste(c(0,0, 2.5, 5.0, 7.5,10.0), "Mg/L")) +
-#   theme_bw() + theme_minimal() + 
-#   labs(title = "Oxygen Levels over quarters from 1949-2020 ",x = "Year", y = "Quarter") +
-#   theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
-# heat_map2
-
-
+#histogram of oxygen levels to help decide how to break up colors on heatmap
 hist(bottle_heat$oxygen)
 
+
+# function to get list of oxygen for heat map
+# Modifying original ts plot to show percentile
+oxy_hm <- function( percentile, date_min, date_max){
+ 
+    bottle_sub <- bottle %>% 
+      subset(station <= 60) %>%
+      filter(line >= 76.7 & line <= 93.3, depth<=300) 
+  
+  h <- bottle_sub %>%
+    group_by(year, quarter) %>%
+    summarise(oxygen_perc = quantile(oxygen, probs = percentile/100, na.rm = TRUE),
+              date = median(date, na.rm = T))
+  
+  return(h)
+}
+
+hm_data<- oxy_hm(50, '1949-02-28', '2020-01-26')
+hm_data<- hm_data %>% group_by(quarter,year)
+
+#heat map with original color sca;e and without breaks 
+heat_map<-ggplot(hm_data, aes(year,quarter)) + geom_tile(aes(fill = oxygen_perc),colour = "white", na.rm = TRUE) +
+  scale_fill_gradient(low = col1, high = col2) +  
+  guides(fill=guide_legend(title="Oxygen Levels")) +
+  theme_bw() + theme_minimal() + 
+  labs(title="Oxygen Levels From 1949-2020 over 4 quarters",x = "Year", y = "Quarter")+
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+heat_map
+
 #updated heatmap with different oxygen scale,  different colors, and added units to legend
-heat_map2<-ggplot(bottle_heat, aes(year,quarter)) + geom_tile(aes(fill = oxygen),colour = "white", na.rm = TRUE) +
-     scale_fill_gradientn(colours = c("red", "black", "blue"), breaks= c(2,4,6),labels=c("2 mg/L ","4 mg/L","6 mg/L")) +  
+
+heat_map2<-ggplot(hm_data, aes(year,quarter)) + geom_tile(aes(fill = oxygen_perc),colour = "white", na.rm = TRUE) +
+     scale_fill_gradientn(colours = c("red", "black", "blue"), breaks= c(.25,.5,.75),labels=c(".25 mg/L ",".4 mg/L","6 mg/L")) +  
      guides(fill=guide_legend(title="Oxygen Levels"))+
      theme_bw() + theme_minimal() + 
      labs(title = "Oxygen Levels over quarters from 1949-2020 ",
@@ -282,15 +309,34 @@ heat_map2<-ggplot(bottle_heat, aes(year,quarter)) + geom_tile(aes(fill = oxygen)
 heat_map2
 
 
-# heatmap without quarters-- NOT DONE
-heat_map3<-ggplot(bottle_heat, aes(year)) + geom_tile(aes(fill = oxygen),colour = "white", na.rm = TRUE) +
-  scale_fill_gradientn(colours = c("red", "black", "blue"), breaks= c(2,4,6),labels=c("2 mg/L ","4 mg/L","6 mg/L")) +  
-  guides(fill=guide_legend(title="Oxygen Levels"))+
-  theme_bw() + theme_minimal() + 
-  labs(title = "Oxygen Levels  from 1949-2020 ",
-       x = "Year") +
-  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
-heat_map3
+# interactive heatmap with year and quarter
+interactive_test<-plot_ly(x=hm_data$year, y=hm_data$quarter,z=hm_data$oxygen_perc, type="heatmap")
+interactive_test
+
+
+
+# heatmap without quarters
+oxy_hm_wo_quarter <- function( percentile, date_min, date_max){
+  
+  bottle_sub <- bottle %>% 
+    subset(station <= 60) %>%
+    filter(line >= 76.7 & line <= 93.3, depth<=300) 
+  
+  h <- bottle_sub %>%
+    group_by(year) %>%
+    summarise(oxygen_perc = quantile(oxygen, probs = percentile/100, na.rm = TRUE),
+              date = median(date, na.rm = T))
+  
+  return(h)
+}
+
+hm2_data<- oxy_hm_wo_quarter(50, '1949-02-28', '2020-01-26')
+hm2_data<- hm2_data %>% group_by(year)
+
+hm2_data$test<-rep(0,71)
+
+interactive_test2<-plot_ly(x=hm2_data$year, y=hm2_data$test, z=hm2_data$oxygen_perc, type="heatmap")
+interactive_test2
 
 
 
