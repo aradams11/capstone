@@ -16,6 +16,7 @@ library(heatmaply)
 
 
 
+
 # changing to numeric for filtering purposes
 bottle$line <- as.numeric(bottle$line)
 bottle$station <- as.numeric(bottle$station)
@@ -287,7 +288,14 @@ oxy_hm <- function( percentile, date_min, date_max){
 
 hm_data<- oxy_hm(50, '1949-02-28', '2020-01-26')
 hm_data<- hm_data %>% group_by(quarter,year)
-
+hm_data$quarter<- as.character(hm_data$quarter)
+hm_data <- hm_data %>%
+  mutate(quarter = recode(quarter,'1' = 'Winter','2' = 'Spring','3' =  'Summer','4'='Fall' ))
+yform <- list(categoryorder = "array",
+              categoryarray = c( "Fall", 
+                                "Summer",
+                                "Spring",
+                                "Winter"))
 #heat map with original color sca;e and without breaks 
 heat_map<-ggplot(hm_data, aes(year,quarter)) + geom_tile(aes(fill = oxygen_perc),colour = "white", na.rm = TRUE) +
   scale_fill_gradient(low = col1, high = col2) +  
@@ -300,7 +308,7 @@ heat_map
 #updated heatmap with different oxygen scale,  different colors, and added units to legend
 
 heat_map2<-ggplot(hm_data, aes(year,quarter)) + geom_tile(aes(fill = oxygen_perc),colour = "white", na.rm = TRUE) +
-     scale_fill_gradientn(colours = c("red", "black", "blue"), breaks= c(.25,.5,.75),labels=c(".25 mg/L ",".4 mg/L","6 mg/L")) +  
+     scale_fill_gradientn(colours = c("red", "black", "blue"), breaks= c(3,3.5,4),labels=c("3 mg/L ","3.5 mg/L","4 mg/L")) +  
      guides(fill=guide_legend(title="Oxygen Levels"))+
      theme_bw() + theme_minimal() + 
      labs(title = "Oxygen Levels over quarters from 1949-2020 ",
@@ -310,7 +318,9 @@ heat_map2
 
 
 # interactive heatmap with year and quarter
-interactive_test<-plot_ly(x=hm_data$year, y=hm_data$quarter,z=hm_data$oxygen_perc, type="heatmap")
+
+interactive_test<-plot_ly(x=hm_data$year, y=hm_data$quarter,z=hm_data$oxygen_perc, type="heatmap",colors="Blues", hovertemplate= "Year:%{x} <br> Quarter: %{y} <br> Mean Oxygen Level: %{z}<extra></extra>")%>%
+  layout(title="Mean Oxygen Levels in Core CalCOFI stations over quarters",yaxis=yform)
 interactive_test
 
 
@@ -335,8 +345,6 @@ hm2_data<- hm2_data %>% group_by(year)
 
 hm2_data$test<-rep(0,71)
 
-interactive_test2<-plot_ly(x=hm2_data$year, y=hm2_data$test, z=hm2_data$oxygen_perc, type="heatmap")
+interactive_test2<-plot_ly(x=hm2_data$year, y=hm2_data$test, z=hm2_data$oxygen_perc, type="heatmap", hovertemplate= "Year:%{x} <br> Mean Oxygen Level: %{z}<extra></extra>")%>%
+  layout(title="Mean Oxygen Levels in Core CalCOFI stations")
 interactive_test2
-
-
-
