@@ -179,58 +179,6 @@ oxy_ts_plot_percentile_quarters <- function(n_ranges, percentile, date_min, date
 oxy_ts_plot_percentile_quarters(3, 95, '1949-02-28', '2020-01-26')
 
 
-###### Time Series plot for temperature
-
-temp_ts_plot_percentile_quarters <- function(n_ranges, percentile, date_min, date_max){
-  if (n_ranges > 1){
-    bottle_sub <- bottle %>% 
-      subset(station <= 60) %>%
-      filter(depth>=0 & depth<=500,
-             line >= 76.7 & line <= 93.3) %>%
-      mutate(depth_fac = cut(depth, n_ranges))
-  }
-  else {
-    bottle_sub <- bottle %>% 
-      subset(station <= 60) %>%
-      filter(depth>=0 & depth<=500,
-             line >= 76.7 & line <= 93.3) %>%
-      mutate(depth_fac= rep("[0,500]",length(year)))
-  }
-  
-  q <- bottle_sub %>%
-    group_by(year, quarter, depth_fac) %>%
-    summarise(temperature_perc = quantile(temperature, probs = percentile/100, na.rm = TRUE),
-              date = median(date, na.rm = T))
-  q %>% 
-    ggplot(aes(x = date, 
-               y = temperature_perc, 
-               group = depth_fac, 
-               color = depth_fac, 
-               # shape=as.factor(quarter)
-               )) +
-    geom_point(na.rm=T) +
-    facet_wrap(~ quarter,
-               nrow = 2) +
-    geom_line(linetype='dashed') +
-    labs(title = paste(percentile,
-                       "th Percentile Temperature Across All On-Shelf Stations Over Time"), 
-         x = "Date", 
-         y = "Temperature (°C)", 
-         color = "Depth Range (m)", 
-         # shape = "Quarter"
-         ) +
-    # scale_shape_discrete(name="Quarter",
-    #                      breaks=c("1", "2", "3","4"),
-    #                      labels=c("Winter", "Spring", "Summer","Fall")) +
-    scale_x_date(limit=c(as.Date(date_min),as.Date(date_max)), date_labels = "%Y %b %d", breaks = scales::breaks_pretty(7)) +
-    scale_y_continuous(limits=c(NA,NA),
-                       expand = c(0.1, 0.1)) +
-    theme_bw() 
-}
-
-temp_ts_plot_percentile_quarters(2, 95, '1949-02-28', '2020-01-26')
-
-
 
 #heat map visual ###
 
@@ -244,7 +192,7 @@ bottle_filter<- bottle %>%
   filter(depth>=0 & depth<=500,
          line >= 76.7 & line <= 93.3)
 
-
+bottle %>% filter(year==1980)
 bottle_heat<-bottle_filter %>% select(c("quarter","year","oxygen"))
 quarter<-bottle_heat$quarter
 oxygen<-bottle_heat$oxygen
@@ -296,7 +244,7 @@ yform <- list(categoryorder = "array",
                                 "Summer",
                                 "Spring",
                                 "Winter"))
-#heat map with original color sca;e and without breaks 
+# stationary heat map with original color scale and without breaks 
 heat_map<-ggplot(hm_data, aes(year,quarter)) + geom_tile(aes(fill = oxygen_perc),colour = "white", na.rm = TRUE) +
   scale_fill_gradient(low = col1, high = col2) +  
   guides(fill=guide_legend(title="Oxygen Levels")) +
@@ -305,7 +253,7 @@ heat_map<-ggplot(hm_data, aes(year,quarter)) + geom_tile(aes(fill = oxygen_perc)
   theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
 heat_map
 
-#updated heatmap with different oxygen scale,  different colors, and added units to legend
+#stationary heatmap with different oxygen scale,  different colors, and added units to legend
 
 heat_map2<-ggplot(hm_data, aes(year,quarter)) + geom_tile(aes(fill = oxygen_perc),colour = "white", na.rm = TRUE) +
      scale_fill_gradientn(colours = c("red", "black", "blue"), breaks= c(3,3.5,4),labels=c("3 mg/L ","3.5 mg/L","4 mg/L")) +  
@@ -319,8 +267,8 @@ heat_map2
 
 # interactive heatmap with year and quarter
 
-interactive_test<-plot_ly(x=hm_data$year, y=hm_data$quarter,z=hm_data$oxygen_perc, type="heatmap",colors="Blues", hovertemplate= "Year:%{x} <br> Quarter: %{y} <br> Mean Oxygen Level: %{z}<extra></extra>")%>%
-  layout(title="Mean Oxygen Levels in Core CalCOFI stations over quarters",yaxis=yform)
+median_heatmap_quarterly<-plot_ly(x=hm_data$year, y=hm_data$quarter,z=hm_data$oxygen_perc, type="heatmap",colors="Blues", hovertemplate= "Year:%{x} <br> Quarter: %{y} <br> Median Oxygen Level: %{z}<extra></extra>")%>%
+  layout(title="Median Oxygen Levels in Core CalCOFI stations up to 300 meters, over quarters",yaxis=yform)
 interactive_test
 
 
@@ -343,8 +291,32 @@ oxy_hm_wo_quarter <- function( percentile, date_min, date_max){
 hm2_data<- oxy_hm_wo_quarter(50, '1949-02-28', '2020-01-26')
 hm2_data<- hm2_data %>% group_by(year)
 
-hm2_data$test<-rep(0,71)
+hm2_data$y<-rep(0,71)
+ax <- list(showticklabels = FALSE)
 
-interactive_test2<-plot_ly(x=hm2_data$year, y=hm2_data$test, z=hm2_data$oxygen_perc, type="heatmap", hovertemplate= "Year:%{x} <br> Mean Oxygen Level: %{z}<extra></extra>")%>%
-  layout(title="Mean Oxygen Levels in Core CalCOFI stations")
-interactive_test2
+median_heatmap_yearly<-plot_ly(x=hm2_data$year, y=hm2_data$y, z=hm2_data$oxygen_perc, type="heatmap", colors ="RdYlBu", hovertemplate= "Year:%{x} <br> Median Oxygen Level: %{z}<extra></extra>")%>%
+  layout(title="Median Oxygen Levels in Core CalCOFI stations up to 300 meters", yaxis=ax)
+median_heatmap_yearly
+
+#heatmap with mean levels of oxygen yearly
+bottle_filter<- bottle %>% subset(station <= 60) %>%
+  filter(line >= 76.7 & line <= 93.3, depth<=300) 
+
+mean_data<-bottle_filter %>%
+  group_by(year) %>%
+  summarise(mean_temp = mean(oxygen,na.rm = TRUE))
+
+mean_data$y<-rep(0,71)
+ax <- list(showticklabels = FALSE)
+
+mean_heatmap_yearly<-plot_ly(x=mean_data$year, y=mean_data$y, z=mean_data$mean_temp, type="heatmap", colors ="RdYlBu", hovertemplate= "Year:%{x} <br> Mean Oxygen Level: %{z}<extra></extra>")%>%
+  layout(title="Mean Oxygen Levels in Core CalCOFI stations up to 300 meters", yaxis=ax)
+mean_heatmap_yearly
+
+
+
+# test to make sure values displayed are correct
+test_ox_data<- bottle_filter %>% filter(year== 1972)
+ox_sum<-sum(test_ox_data$oxygen,na.rm = TRUE)
+ox_sum/nrow(test_ox_data)
+
